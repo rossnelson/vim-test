@@ -16,18 +16,21 @@ function! test#javascript#nx#build_position(type, position) abort
   let project = ''
 
   let l:project_json = findfile('project.json', '.;')
+
   if filereadable(project_json)
     let l:project_json_file = readfile(project_json)
     if exists('*json_decode')
       let project = json_decode(join(project_json_file, ''))['name']
     endif
-  elseif filereadable('workspace.json')
-    let l:workpaces = readfile('workspace.json')
+  else
+    let executable = test#javascript#nx#base_executable()
+    let output = system(executable . ' show projects --json')
+
     if exists('*json_decode')
-      let l:projects = json_decode(join(workpaces, ''))['projects']
-      for [key, value] in items(projects)
-        if stridx(a:position['file'], value) >= 0
-          let project = key
+      let l:projects = json_decode(output)
+      for p in l:projects
+        if stridx(a:position['file'], p) >= 0
+          let project = p
           break
         endif
       endfor
@@ -57,19 +60,22 @@ function! test#javascript#nx#build_args(args) abort
   endif
 endfunction
 
-function! test#javascript#nx#executable() abort
-  if exists('g:test#javascript#nx#project')
-    if filereadable('node_modules/.bin/nx')
-      return 'node_modules/.bin/nx test ' . g:test#javascript#nx#project
-    else
-      return 'nx test ' . g:test#javascript#nx#project
-    endif
-  endif
+function! test#javascript#nx#base_executable() abort
   if filereadable('node_modules/.bin/nx')
-    return 'node_modules/.bin/nx test'
+    return 'node_modules/.bin/nx'
   else
-    return 'nx test'
+    return 'nx'
   endif
+endfunction
+
+function! test#javascript#nx#executable() abort
+  let base = test#javascript#nx#base_executable()
+
+  if exists('g:test#javascript#nx#project')
+    return base . ' test ' . g:test#javascript#nx#project
+  endif
+
+  return base . ' test '
 endfunction
 
 function! s:nearest_test(position) abort
